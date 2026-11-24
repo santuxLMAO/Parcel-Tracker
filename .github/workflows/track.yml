@@ -1,0 +1,44 @@
+name: Track parcel
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # hourly at :17
+  workflow_dispatch:        # lets you run it manually from the Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: track-parcel
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      # Restore what was already posted (kept in the Actions cache, not in the repo)
+      - uses: actions/cache/restore@v4
+        with:
+          path: state.json
+          key: state-${{ github.run_id }}
+          restore-keys: state-
+
+      - name: Check for new tracking events
+        run: python3 track.py
+        env:
+          SHIP24_API_KEY: ${{ secrets.SHIP24_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TRACKING_NUMBER: ${{ secrets.TRACKING_NUMBER }}
+          PARCEL_NAME: ${{ vars.PARCEL_NAME }}
+          ORIGIN_COUNTRY: ${{ vars.ORIGIN_COUNTRY }}
+          DESTINATION_COUNTRY: ${{ vars.DESTINATION_COUNTRY }}
+          DISCORD_USER_ID: ${{ vars.DISCORD_USER_ID }}
+
+      - uses: actions/cache/save@v4
+        if: success()
+        with:
+          path: state.json
+          key: state-${{ github.run_id }}
